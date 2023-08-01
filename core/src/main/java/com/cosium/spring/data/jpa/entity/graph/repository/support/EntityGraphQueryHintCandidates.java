@@ -11,9 +11,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.core.NamedThreadLocal;
-import org.springframework.core.ResolvableType;
 import org.springframework.data.repository.core.RepositoryInformation;
 import org.springframework.data.repository.core.support.RepositoryProxyPostProcessor;
+import org.springframework.data.repository.util.QueryExecutionConverters;
+import org.springframework.data.util.ReflectionUtils;
+import org.springframework.data.util.TypeInformation;
 
 /**
  * Captures {@link EntityGraph} on repositories method calls. Created on 22/11/16.
@@ -71,8 +73,10 @@ class EntityGraphQueryHintCandidates implements MethodInterceptor {
     RepositoryMethodInvocation methodInvocation = new RepositoryMethodInvocation(invocation);
     EntityGraph providedEntityGraph = methodInvocation.findEntityGraphArgument();
     Object repository = methodInvocation.repository();
-    ResolvableType returnType =
-        ResolvableType.forMethodReturnType(methodInvocation.method(), repository.getClass());
+    TypeInformation<?> returnType =
+        QueryExecutionConverters.unwrapWrapperTypes(
+            TypeInformation.fromReturnTypeOf(methodInvocation.method()));
+
     EntityGraphQueryHintCandidate candidate =
         buildEntityGraphCandidate(providedEntityGraph, repository);
 
@@ -128,19 +132,10 @@ class EntityGraphQueryHintCandidates implements MethodInterceptor {
     return new EntityGraphQueryHintCandidate(queryHint, domainClass, isPrimary);
   }
 
-  private boolean canApplyEntityGraph(ResolvableType repositoryMethodReturnType) {
-    Class<?> resolvedReturnType = repositoryMethodReturnType.resolve();
-    if (resolvedReturnType != null
-        && (Void.TYPE.equals(resolvedReturnType)
-            || domainClass.isAssignableFrom(resolvedReturnType))) {
-      return true;
-    }
-    for (Class<?> genericType : repositoryMethodReturnType.resolveGenerics()) {
-      if (domainClass.isAssignableFrom(genericType)) {
-        return true;
-      }
-    }
-    return false;
+  private boolean canApplyEntityGraph(TypeInformation<?> repositoryMethodReturnType) {
+    Class<?> resolvedReturnType = repositoryMethodReturnType.getType();
+    return ReflectionUtils.isVoid(resolvedReturnType)
+        || resolvedReturnType.isAssignableFrom(domainClass);
   }
 
   private record PostProcessor(EntityManager entityManager)

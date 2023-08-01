@@ -102,6 +102,12 @@
       <artifactId>logback-classic</artifactId>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>io.vavr</groupId>
+      <artifactId>vavr</artifactId>
+      <version>${vavr.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
